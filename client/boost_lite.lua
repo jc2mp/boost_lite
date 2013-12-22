@@ -1,133 +1,77 @@
-land_vehicles = {}
-function AddVehicle(id)
-	land_vehicles[id] = true
+
+--Is this vehicle in our allowed-vehicle-list?
+local function IsVehicleValid( veh )
+	return land_vehicles[veh:GetModelId()]
 end
-AddVehicle(1)
-AddVehicle(2)
-AddVehicle(4)
-AddVehicle(7)
-AddVehicle(8)
-AddVehicle(9)
-AddVehicle(10)
-AddVehicle(11)
-AddVehicle(12)
-AddVehicle(13)
-AddVehicle(15)
-AddVehicle(18)
-AddVehicle(21)
-AddVehicle(22)
-AddVehicle(23)
-AddVehicle(26)
-AddVehicle(29)
-AddVehicle(31)
-AddVehicle(32)
-AddVehicle(33)
-AddVehicle(35)
-AddVehicle(36)
-AddVehicle(40)
-AddVehicle(41)
-AddVehicle(42)
-AddVehicle(43)
-AddVehicle(44)
-AddVehicle(46)
-AddVehicle(47)
-AddVehicle(48)
-AddVehicle(49)
-AddVehicle(52)
-AddVehicle(54)
-AddVehicle(55)
-AddVehicle(56)
-AddVehicle(60)
-AddVehicle(61)
-AddVehicle(63)
-AddVehicle(66)
-AddVehicle(68)
-AddVehicle(70)
-AddVehicle(71)
-AddVehicle(72)
-AddVehicle(73)
-AddVehicle(74)
-AddVehicle(76)
-AddVehicle(77)
-AddVehicle(78)
-AddVehicle(79)
-AddVehicle(83)
-AddVehicle(84)
-AddVehicle(86)
-AddVehicle(87)
-AddVehicle(89)
-AddVehicle(90)
-AddVehicle(91)
-AddVehicle(5)
-AddVehicle(6)
-AddVehicle(16)
-AddVehicle(19)
-AddVehicle(25)
-AddVehicle(27)
-AddVehicle(28)
-AddVehicle(38)
-AddVehicle(45)
-AddVehicle(50)
-AddVehicle(69)
-AddVehicle(80)
-AddVehicle(88)
-AddVehicle(53)
+
+--Helper function to see if the player is allowed to boost.
+local function PlayerCanBoost()
+	if LocalPlayer:GetWorld() != DefaultWorld then return false end
+	if LocalPlayer:GetState() ~= PlayerState.InVehicle then return false end
+	if not IsValid(LocalPlayer:GetVehicle()) then return false end
+	return IsVehicleValid( LocalPlayer:GetVehicle() )
+end
+
+--Returns true if this action is the one used to boost.
+local function IsBoostAction( action )
+	--return (Game:GetSetting( GameSetting.GamepadInUse ) == 1) and (action == Action.VehicleFireLeft) or (action == Action.PlaneIncTrust)
+	return (action == Action.PlaneIncTrust) -- Leaving the other out because I did for the next function.
+end
+
+--Returns the key used to boost.
+--TODO: Fix this hacky shit.
+local function GetBoostKey()
+	--return (Game:GetSetting( GameSetting.GamepadInUse ) == 1) and (???) or (16) -- TODO: Controller support
+	return 16
+end
 
 local timer = Timer()
 local nos_enabled = true
+local isboosting = false
+--local window_open = false
 
 function InputEvent( args )
-	if window_open then
-		return false
-	end
-
-	if not nos_enabled then return true end
-
-	if LocalPlayer:InVehicle() and 
-		LocalPlayer:GetState() == PlayerState.InVehicle and 
-		IsValid(LocalPlayer:GetVehicle()) and
-		timer:GetSeconds() > 0.2 and 
-		LocalPlayer:GetWorld() == DefaultWorld and
-		land_vehicles[LocalPlayer:GetVehicle():GetModelId()] then
-		
-		if Game:GetSetting( GameSetting.GamepadInUse ) == 1 then
-			if args.input == Action.VehicleFireLeft then
-				Network:Send("Boost", true)
-				timer:Restart()
-			end
-		else
-			if args.input == Action.PlaneIncTrust then
-				Network:Send("Boost", true)
-				timer:Restart()
-			end
-		end
-
+	if not nos_enabled then return true end -- If we have boosting turned off, leave
+	if timer:GetSeconds() <= 0.2 then return true end -- If we try to spam the key, leave
+	if not IsBoostAction(args.input) then return true end -- If the key we pressed isn't a boost-key, leave
+	
+	local canboost = PlayerCanBoost() -- Can we boost currently?
+	if not isboosting and canboost then -- Only send the message if we ain't boosting
+		--Boost
+		Network:Send("Boost", true) -- Send message
+		isboosting = true
 	end
 end
 
-function RenderEvent()
-	if not nos_enabled then return end
-	if LocalPlayer:InVehicle() and LocalPlayer:GetState() ~= PlayerState.InVehicle then return end
-	if not IsValid(LocalPlayer:GetVehicle()) then return end
-	if land_vehicles[LocalPlayer:GetVehicle():GetModelId()] == nil then return end
-	if LocalPlayer:GetWorld() ~= DefaultWorld then return end
+Events:Subscribe("PostTick", function()
+	if isboosting and not Key:IsDown(GetBoostKey()) then -- Keep checking if we have released the boost key
+		isboosting = false
+		Network:Send("Boost", false) -- Send message to stop us from boosting
+	end
+end)
 
-	local boost_text = "Boost Lite - /boost to toggle"
-	local boost_size = Render:GetTextSize( boost_text )
+local textsize
+function RenderEvent()
+	if not PlayerCanBoost() then return end
+	
+	local boost_text = string.format("Boost Lite (%s) - /boost to toggle", nos_enabled and "ON" or "OFF")
+	textsize = textsize or Render:GetTextSize( boost_text ) -- only calculate textsize once, duh
 
 	local boost_pos = Vector2( 
-		(Render.Width - boost_size.x)/2, 
-		Render.Height - boost_size.y )
+		(Render.Width - textsize.x)/2, 
+		Render.Height - textsize.y ) -- Theoretically we could only calculate this once too, but the player may change resolution.
 
 	Render:DrawText( boost_pos, boost_text, Color( 255, 255, 255 ) )
 end
 
 function LocalPlayerChat( args )
 	if args.text == "/boost" then
-		SetWindowOpen( not GetWindowOpen() )
+		nos_enabled = not nos_enabled -- Toggle boosting directly.
+		--SetWindowOpen( not GetWindowOpen() ) -- Disabling window because it only has one setting anyways.
 	end
 end
 
+--[[
 function CreateSettings()
     window_open = false
 
@@ -156,7 +100,7 @@ function SetWindowOpen( state )
     window_open = state
     window:SetVisible( window_open )
     Mouse:SetVisible( window_open )
-end
+end]]
 
 function ModulesLoad()
 	Events:FireRegisteredEvent( "HelpAddItem",
@@ -164,9 +108,9 @@ function ModulesLoad()
             name = "Boost",
             text = 
                 "The boost lets you increase the speed of your car/boat.\n\n" ..
-                "To use it, tap Shift on a keyboard, or the LB button " ..
+                "To use it, hold Shift on a keyboard, or the LB button " ..
                 "on controllers.\n\n" ..
-                "To disable the script, type /boost into chat."
+                "To toggle the script, type /boost into chat."
         } )
 end
 
@@ -177,7 +121,7 @@ function ModuleUnload()
         } )
 end
 
-CreateSettings()
+--CreateSettings()
 
 Events:Subscribe("LocalPlayerChat", LocalPlayerChat)
 Events:Subscribe("Render", RenderEvent)
