@@ -43,12 +43,13 @@ function InputEvent( args )
 	end
 end
 
-Events:Subscribe("PostTick", function()
+local function PostTick()
 	if isboosting and not Key:IsDown(GetBoostKey()) then -- Keep checking if we have released the boost key
 		isboosting = false
 		Network:Send("Boost", false) -- Send message to stop us from boosting
 	end
-end)
+end
+Events:Subscribe("PostTick", PostTick)
 
 local textsize
 function RenderEvent()

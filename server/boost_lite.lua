@@ -43,18 +43,18 @@ end
 local boosters = {} -- List of players currently boosting
 
 --Message received about boosting
-Network:Subscribe("Boost",
-	function(turnon, sender)
-		if turnon and not PlayerCanBoost(sender) then return end -- If the player wants to turn it on, but he can't: don't let him.
-		
-		if turnon then
-			boosters[ sender:GetId() ] = sender -- Player wants to turn it on
-		else
-			boosters[ sender:GetId() ] = nil -- Player wants to turn it off
-		end
-	end)
+local function BoostMessage(turnon, sender)
+	if turnon and not PlayerCanBoost(sender) then return end -- If the player wants to turn it on, but he can't: don't let him.
+	
+	if turnon then
+		boosters[ sender:GetId() ] = sender -- Player wants to turn it on
+	else
+		boosters[ sender:GetId() ] = nil -- Player wants to turn it off
+	end
+end
+Network:Subscribe("Boost", BoostMessage)
 
-Events:Subscribe("PostTick", function()
+local function PostTick()
 	for plyid,ply in pairs(boosters) do -- Walk through all players who want to boost
 		if not IsValid(ply) then -- If the player has left the game
 			boosters[plyid] = nil -- Stop us from processing him
@@ -62,4 +62,5 @@ Events:Subscribe("PostTick", function()
 			ApplyBoost(ply:GetVehicle(), BoostMultiplier) -- He is! Boost him!
 		end
 	end
-end)
+end
+Events:Subscribe("PostTick", PostTick)
