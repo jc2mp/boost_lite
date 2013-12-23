@@ -61,11 +61,11 @@ function RenderEvent()
 	local boostText = string.format("Boost Lite (%s) - /boost to toggle", nosEnabled and "ON" or "OFF")
 	textSize = textSize or Render:GetTextSize( boostText ) -- only calculate textSize once, duh
 
-	local boost_pos = Vector2( 
+	local boostPos = Vector2( 
 		(Render.Width - textSize.x)/2, 
 		Render.Height - textSize.y ) -- Theoretically we could only calculate this once too, but the player may change resolution.
 
-	Render:DrawText( boost_pos, boostText, Color( 255, 255, 255 ) )
+	Render:DrawText( boostPos, boostText, Color( 255, 255, 255 ) )
 end
 
 function LocalPlayerChat( args )

@@ -57,6 +57,7 @@ local function BoostMessage(val, sender)
 	if turnOn and not PlayerCanBoost(sender) then return end -- If the player wants to turn it on, but he can't: don't let him.
 	
 	if turnOn then
+		val = math.min(math.max(val, 0.001), MaxBoostMultiplier) -- Clamps the value.
 		boosters[ sender:GetId() ] = {ply = sender, mul = val} -- Player wants to turn it on
 	else
 		boosters[ sender:GetId() ] = nil -- Player wants to turn it off
