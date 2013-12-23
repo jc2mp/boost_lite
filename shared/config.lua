@@ -1,5 +1,5 @@
 
-BoostMultiplier = 2.0
+MaxBoostMultiplier = 2.0
 
 land_vehicles = {}
 function AddVehicle(id)

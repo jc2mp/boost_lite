@@ -28,39 +28,55 @@ end
 
 --Helper function to easily apply a boost on a vehicle with supplied multiplier.
 local function ApplyBoost( veh, mul )
-	local forward = veh:GetAngle() * Vector3(0, 0, -1) -- Get a forward vector.
+	local forward = veh:GetAngle() * Vector3(0, 0, -1) -- Get our forward direction.
 	local vel = veh:GetLinearVelocity() -- Get our current velocity.
 	
-	local new_vel = vel + (forward * mul) -- Apply our current velocity with the forward vector, times input multiplier.
+	local newVel = vel + (forward * mul) -- Apply our current velocity with the forward vector, times input multiplier.
 
-	if new_vel:IsNaN() then -- If the newly calculated velocity is somehow invalid, stop what we're doing.
+	if newVel:IsNaN() then
 		return
 	end
 
-	veh:SetLinearVelocity( new_vel )
+	veh:SetLinearVelocity( newVel )
 end
 
 local boosters = {} -- List of players currently boosting
 
 --Message received about boosting
-local function BoostMessage(turnon, sender)
-	if turnon and not PlayerCanBoost(sender) then return end -- If the player wants to turn it on, but he can't: don't let him.
+local function BoostMessage(val, sender)
+	--Val will be 'false' whenever we want to turn off
+	--Val will be a value whenever we want to turn on
 	
-	if turnon then
-		boosters[ sender:GetId() ] = sender -- Player wants to turn it on
+	local turnOn
+	if not val then
+		turnOn = false
+	else
+		turnOn = true
+	end
+	
+	if turnOn and not PlayerCanBoost(sender) then return end -- If the player wants to turn it on, but he can't: don't let him.
+	
+	if turnOn then
+		boosters[ sender:GetId() ] = {ply = sender, mul = val} -- Player wants to turn it on
 	else
 		boosters[ sender:GetId() ] = nil -- Player wants to turn it off
 	end
 end
 Network:Subscribe("Boost", BoostMessage)
 
+local timer = Timer()
 local function PostTick()
-	for plyid,ply in pairs(boosters) do -- Walk through all players who want to boost
-		if not IsValid(ply) then -- If the player has left the game
-			boosters[plyid] = nil -- Stop us from processing him
-		elseif PlayerCanBoost(ply) then -- Otherwise, check if he's allowed to boost.
-			ApplyBoost(ply:GetVehicle(), BoostMultiplier) -- He is! Boost him!
+	if timer:GetMilliseconds() <= 50 then return end
+	timer:Restart()
+	
+	for plyID,tbl in pairs(boosters) do -- Walk through all players who want to boost
+	
+		if not IsValid(tbl.ply) then -- If the player has left the game
+			boosters[plyID] = nil -- Stop us from processing him
+		elseif PlayerCanBoost(tbl.ply) then -- Otherwise, check if he's allowed to boost.
+			ApplyBoost(tbl.ply:GetVehicle(), tbl.mul)
 		end
+		
 	end
 end
 Events:Subscribe("PostTick", PostTick)

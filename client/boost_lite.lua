@@ -26,103 +26,137 @@ local function GetBoostKey()
 end
 
 local timer = Timer()
-local nos_enabled = true
-local isboosting = false
---local window_open = false
+local nosEnabled = true
+local isBoosting = false
+local windowOpen = false
+local boostMul = MaxBoostMultiplier
 
 function InputEvent( args )
-	if not nos_enabled then return true end -- If we have boosting turned off, leave
-	if timer:GetSeconds() <= 0.2 then return true end -- If we try to spam the key, leave
+	if not nosEnabled then return true end
+	
+	if timer:GetMilliseconds() <= 200 then return true end -- If we try to spam the key, leave
 	if not IsBoostAction(args.input) then return true end -- If the key we pressed isn't a boost-key, leave
 	
-	local canboost = PlayerCanBoost() -- Can we boost currently?
-	if not isboosting and canboost then -- Only send the message if we ain't boosting
+	local canBoost = PlayerCanBoost() -- Can we boost currently?
+	if not isBoosting and canBoost then -- Only send the message if we ain't boosting
 		--Boost
-		Network:Send("Boost", true) -- Send message
-		isboosting = true
+		timer:Restart()
+		Network:Send("Boost", boostMul) -- Send message
+		isBoosting = true
 	end
 end
 
 local function PostTick()
-	if isboosting and not Key:IsDown(GetBoostKey()) then -- Keep checking if we have released the boost key
-		isboosting = false
+	if isBoosting and not Key:IsDown(GetBoostKey()) then -- Keep checking if we have released the boost key
+		isBoosting = false
 		Network:Send("Boost", false) -- Send message to stop us from boosting
 	end
 end
 Events:Subscribe("PostTick", PostTick)
 
-local textsize
+local textSize
 function RenderEvent()
 	if not PlayerCanBoost() then return end
 	
-	local boost_text = string.format("Boost Lite (%s) - /boost to toggle", nos_enabled and "ON" or "OFF")
-	textsize = textsize or Render:GetTextSize( boost_text ) -- only calculate textsize once, duh
+	local boostText = string.format("Boost Lite (%s) - /boost to toggle", nosEnabled and "ON" or "OFF")
+	textSize = textSize or Render:GetTextSize( boostText ) -- only calculate textSize once, duh
 
 	local boost_pos = Vector2( 
-		(Render.Width - textsize.x)/2, 
-		Render.Height - textsize.y ) -- Theoretically we could only calculate this once too, but the player may change resolution.
+		(Render.Width - textSize.x)/2, 
+		Render.Height - textSize.y ) -- Theoretically we could only calculate this once too, but the player may change resolution.
 
-	Render:DrawText( boost_pos, boost_text, Color( 255, 255, 255 ) )
+	Render:DrawText( boost_pos, boostText, Color( 255, 255, 255 ) )
 end
 
 function LocalPlayerChat( args )
 	if args.text == "/boost" then
-		nos_enabled = not nos_enabled -- Toggle boosting directly.
-		--SetWindowOpen( not GetWindowOpen() ) -- Disabling window because it only has one setting anyways.
+		SetWindowOpen( not GetWindowOpen() ) -- Disabling window because it only has one setting anyways.
+	elseif args.text == "/tboost" then
+		nosEnabled = not nosEnabled -- Toggle boosting directly.
 	end
 end
 
---[[
+local window
 function CreateSettings()
-    window_open = false
-
-    window = Window.Create()
-    window:SetSize( Vector2( 300, 100 ) )
-    window:SetPosition( (Render.Size - window:GetSize())/2 )
-
-    window:SetTitle( "Boost Settings" )
-    window:SetVisible( window_open )
-    window:Subscribe( "WindowClosed", function() SetWindowOpen( false ) end )
-
-    local enabled_checkbox = LabeledCheckBox.Create( window )
-    enabled_checkbox:SetSize( Vector2( 300, 20 ) )
-    enabled_checkbox:SetDock( GwenPosition.Top )
-    enabled_checkbox:GetLabel():SetText( "Enabled" )
-    enabled_checkbox:GetCheckBox():SetChecked( nos_enabled )
-    enabled_checkbox:GetCheckBox():Subscribe( "CheckChanged", 
-        function() nos_enabled = enabled_checkbox:GetCheckBox():GetChecked() end )
+	window = Window.Create()
+		window:SetSize( Vector2( 230, 100 ) )
+		window:SetPosition( (Render.Size - window:GetSize())/2 )
+		window:SetTitle( "Boost Settings" )
+		window:SetVisible( false )
+		window:Subscribe( "WindowClosed", function() SetWindowOpen( false ) end )
+	
+	local lbl = Label.Create( window )
+		lbl:SetText("Speed: "..(math.floor(boostMul*1000)/1000))
+		lbl:SetPosition( Vector2( 5, 5 ) )
+		lbl:SizeToContents()
+		
+	local slider = HorizontalSlider.Create( window )
+		slider:SetPosition( Vector2( 70, 5 ) )
+		slider:SetSize( Vector2( 145, 10 ) )
+		slider:SetClampToNotches(false)
+		slider:SetRange(0.001, MaxBoostMultiplier)
+		slider:SetValue(MaxBoostMultiplier)
+		--[[slider:Subscribe( "CheckChanged",
+		function()
+			boostMul = slider:GetValue()
+			lbl:SetText("Speed: "..(math.floor(boostMul*1000)/1000))
+			lbl:SizeToContents()
+		end)]]
+	
+	
+	--I could use a LabeledCheckBox but I want the label to be before the checkbox, and not after.
+	local lbl = Label.Create( window )
+		lbl:SetText("Enabled")
+		lbl:SetPosition( Vector2( 5, 30 ) )
+		lbl:SizeToContents()
+		
+	local enabledCheckbox = CheckBox.Create( window )
+		enabledCheckbox:SetPosition( Vector2( 50, 25 ) )
+		enabledCheckbox:SetSize( Vector2( 20, 20 ) )
+		enabledCheckbox:SetChecked( nosEnabled )
+		enabledCheckbox:Subscribe( "CheckChanged", 
+		function()
+			nosEnabled = enabledCheckbox:GetCheckBox():GetChecked()
+		end )
+		
+	local lbl = Label.Create( window )
+		lbl:SetText("Type /tboost to quick-toggle boosting.")
+		lbl:SetPosition( Vector2( 5, 50 ) )
+		lbl:SizeToContents()
 end
 
 function GetWindowOpen()
-    return window_open
+	return windowOpen
 end
 
 function SetWindowOpen( state )
-    window_open = state
-    window:SetVisible( window_open )
-    Mouse:SetVisible( window_open )
-end]]
+	windowOpen = state
+	window:SetVisible( windowOpen )
+	Mouse:SetVisible( windowOpen )
+end
 
 function ModulesLoad()
 	Events:FireRegisteredEvent( "HelpAddItem",
         {
             name = "Boost",
             text = 
-                "The boost lets you increase the speed of your car/boat.\n\n" ..
-                "To use it, hold Shift on a keyboard, or the LB button " ..
-                "on controllers.\n\n" ..
-                "To toggle the script, type /boost into chat."
+[[The boost lets you increase the speed of your car/boat.
+
+To use it, hold Shift on a keyboard, or the LB button on controllers.
+
+To open the menu, type /boost into chat.
+To toggle boosting on/off, type /tboost into chat.]]
         } )
 end
 
 function ModuleUnload()
-    Events:FireRegisteredEvent( "HelpRemoveItem",
-        {
-            name = "Boost"
-        } )
+	Events:FireRegisteredEvent( "HelpRemoveItem",
+			{
+					name = "Boost"
+			} )
 end
 
---CreateSettings()
+CreateSettings()
 
 Events:Subscribe("LocalPlayerChat", LocalPlayerChat)
 Events:Subscribe("Render", RenderEvent)
