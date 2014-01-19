@@ -76,20 +76,19 @@ AddVehicle(53)
 local timer = Timer()
 local nos_enabled = true
 
+function GetNosEnabled()
+	return	nos_enabled and -- If NOS is enabled, and
+			Game:GetState() == GUIState.Game and -- we're in the game, and
+			LocalPlayer:InVehicle() and -- we're definitely in a valid vehicle, and
+			LocalPlayer:GetState() == PlayerState.InVehicle and -- we're driving that vehicle, and
+			LocalPlayer:GetWorld() == DefaultWorld and -- we're in the right world, and
+			land_vehicles[LocalPlayer:GetVehicle():GetModelId()] -- we're driving an acceptable vehicle
+end
+
 function InputEvent( args )
-	if window_open then
-		return false
-	end
+	if window_open then return false end
 
-	if not nos_enabled then return true end
-
-	if LocalPlayer:InVehicle() and 
-		LocalPlayer:GetState() == PlayerState.InVehicle and 
-		IsValid(LocalPlayer:GetVehicle()) and
-		timer:GetSeconds() > 0.2 and 
-		LocalPlayer:GetWorld() == DefaultWorld and
-		land_vehicles[LocalPlayer:GetVehicle():GetModelId()] then
-		
+	if GetNosEnabled() and timer:GetSeconds() > 0.2 then
 		if Game:GetSetting( GameSetting.GamepadInUse ) == 1 then
 			if args.input == Action.VehicleFireLeft then
 				Network:Send("Boost", true)
@@ -101,16 +100,13 @@ function InputEvent( args )
 				timer:Restart()
 			end
 		end
-
 	end
+
+	return true
 end
 
 function RenderEvent()
-	if not nos_enabled then return end
-	if LocalPlayer:InVehicle() and LocalPlayer:GetState() ~= PlayerState.InVehicle then return end
-	if not IsValid(LocalPlayer:GetVehicle()) then return end
-	if land_vehicles[LocalPlayer:GetVehicle():GetModelId()] == nil then return end
-	if LocalPlayer:GetWorld() ~= DefaultWorld then return end
+	if not GetNosEnabled() then return end
 
 	local boost_text = "Boost Lite - /boost to toggle"
 	local boost_size = Render:GetTextSize( boost_text )
