@@ -159,7 +159,7 @@ function SetWindowOpen( state )
 end
 
 function ModulesLoad()
-	Events:FireRegisteredEvent( "HelpAddItem",
+	Events:Fire( "HelpAddItem",
         {
             name = "Boost",
             text = 
@@ -171,7 +171,7 @@ function ModulesLoad()
 end
 
 function ModuleUnload()
-    Events:FireRegisteredEvent( "HelpRemoveItem",
+    Events:Fire( "HelpRemoveItem",
         {
             name = "Boost"
         } )
