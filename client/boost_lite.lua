@@ -91,18 +91,35 @@ function InputEvent( args )
 	if GetNosEnabled() and timer:GetSeconds() > 0.2 then
 		if Game:GetSetting( GameSetting.GamepadInUse ) == 1 then
 			if args.input == Action.VehicleFireLeft then
-				Network:Send("Boost", true)
+				ApplyBoost()
 				timer:Restart()
 			end
 		else
 			if args.input == Action.PlaneIncTrust then
-				Network:Send("Boost", true)
+				ApplyBoost()
 				timer:Restart()
 			end
 		end
 	end
 
 	return true
+end
+
+function ApplyBoost()
+	if LocalPlayer:GetWorld() ~= DefaultWorld then return end
+	if not LocalPlayer:InVehicle() then return end
+	if LocalPlayer:GetState() ~= PlayerState.InVehicle then return end
+
+	local v = LocalPlayer:GetVehicle()
+	local forward = v:GetAngle() * Vector3(0, 0, -1)
+	local vel = v:GetLinearVelocity()
+	local new_vel = vel + (forward * 10)
+
+	if new_vel:IsNaN() then
+		new_vel = Vector3( 0, 0, 0 )
+	end
+
+	v:SetLinearVelocity( new_vel )
 end
 
 function RenderEvent()
